@@ -1,0 +1,27 @@
+# Requirements
+marshmallow
+
+# Task running
+invoke
+
+# Testing
+pytest>=2.8.0
+tox>=1.5.0
+mock==1.0.1
+webtest
+
+# Distribution
+wheel
+twine
+
+# Web frameworks
+Flask>=0.10.1
+Django>=1.6.5
+bottle>=0.12.3
+tornado>=4.0
+pyramid>=1.5.2
+webapp2>=2.5.2
+falcon>=0.3.0
+
+# Syntax checking
+flake8==2.4.1
