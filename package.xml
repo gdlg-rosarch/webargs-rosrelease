@@ -1,0 +1,21 @@
+<package>
+  <name>python_webargs</name>
+  <version>1.1.1</version>
+  <description>
+A friendly library for parsing HTTP request arguments, with built-in support for popular web frameworks, including Flask, Django, Bottle, Tornado, Pyramid, webapp2, Falcon, and aiohttp. http://webargs.readthedocs.org/
+  </description>
+
+  <license>MIT</license>
+
+  <url type="repository">https://github.com/sloria/webargs</url>
+  <url type="bugtracker">https://github.com/sloria/webargs/issues</url>
+
+  <maintainer email="asmodehn@gmail.com">AlexV</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>python-setuptools</build_depend>
+
+</package>
+
+
+
