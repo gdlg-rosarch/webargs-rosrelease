@@ -42,8 +42,18 @@ def abort(http_status_code, **kwargs):
 def is_json_request(req):
     return core.is_json(req.mimetype)
 
+
 class FlaskParser(core.Parser):
     """Flask request argument parser."""
+
+    __location_map__ = dict(
+        view_args='parse_view_args',
+        **core.Parser.__location_map__
+    )
+
+    def parse_view_args(self, req, name, field):
+        """Pull a value from the request's ``view_args``."""
+        return core.get_value(req.view_args, name, field)
 
     def parse_json(self, req, name, field):
         """Pull a json value from the request."""
@@ -52,11 +62,15 @@ class FlaskParser(core.Parser):
         # this should be unnecessary in Flask 1.0
         force = is_json_request(req)
         # Fail silently so that the webargs parser can handle the error
-        json_data = req.get_json(force=force, silent=True)
-        if json_data:
-            return core.get_value(json_data, name, field)
+        if hasattr(req, 'get_json'):
+            # Flask >= 0.10.x
+            json_data = req.get_json(force=force, silent=True)
         else:
+            # Flask <= 0.9.x
+            json_data = req.json
+        if json_data is None:
             return core.missing
+        return core.get_value(json_data, name, field, allow_many_nested=True)
 
     def parse_querystring(self, req, name, field):
         """Pull a querystring value from the request."""

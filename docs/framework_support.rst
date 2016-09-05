@@ -39,7 +39,7 @@ Here is an example error handler that returns validation messages to the client 
     from flask import jsonify
 
     @app.errorhandler(422)
-    def handle_bad_request(err):
+    def handle_unprocessable_entity(err):
         # webargs attaches additional metadata to the `data` attribute
         data = getattr(err, 'data')
         if data:
@@ -50,6 +50,20 @@ Here is an example error handler that returns validation messages to the client 
         return jsonify({
             'messages': messages,
         }), 422
+
+URL Matches
++++++++++++
+
+The `FlaskParser` supports parsing values from a request's ``view_args``.
+
+.. code-block:: python
+
+    from webargs.flaskparser import use_args
+
+    @app.route('/greeting/<name>/')
+    @use_args({'name': fields.Str(location='view_args')})
+    def greeting(args, **kwargs):
+        return 'Hello {}'.format(args['name'])
 
 
 Django
@@ -117,14 +131,14 @@ The :class:`DjangoParser` does not override :meth:`handle_error <webargs.core.Pa
 
     from webargs import fields, ValidationError
 
-    args = {
+    argmap = {
         'name': fields.Str(required=True)
     }
     def index(request):
         try:
-            args = parser.parse(required_args, request)
+            args = parser.parse(argmap, request)
         except ValidationError as err:
-            return JsonResponse({'messages': err.messages}, status=422)
+            return JsonResponse(err.messages, status=err.status_code)
         return JsonResponse({'message': 'Hello {name}'.format(name=name)})
 
 Tornado
@@ -167,7 +181,7 @@ The :class:`webargs.tornadoparser.TornadoParser` parses arguments from a :class:
 Decorator Usage
 +++++++++++++++
 
-When using the :meth:`use_args <webargs.tornadoparser.TornadoParser.use_args>` decorator, the decorated method will have the dictionary of parsed arguments passed as a positional argument after ``self``.
+When using the :meth:`use_args <webargs.tornadoparser.TornadoParser.use_args>` decorator, the decorated method will have the dictionary of parsed arguments passed as a positional argument after ``self`` and any regex match groups from the URL spec.
 
 
 .. code-block:: python
@@ -178,7 +192,7 @@ When using the :meth:`use_args <webargs.tornadoparser.TornadoParser.use_args>` d
     class HelloHandler(tornado.web.RequestHandler):
 
         @use_args({'name': fields.Str()})
-        def post(self, reqargs, id):
+        def post(self, id, reqargs):
             response = {
                 'message': 'Hello {}'.format(reqargs['name'])
             }

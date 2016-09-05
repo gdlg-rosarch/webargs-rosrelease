@@ -75,7 +75,7 @@ If you need to parametrize a schema based on a given request, you can use a "Sch
 Consider the following use cases:
 
 - Filtering via a query parameter by passing ``only`` to the Schema.
-- Handle partial updates for PATCH requests using marshmallow's `partial loading <https://marshmallow.readthedocs.org/en/latest/quickstart.html#partial-loading>`_ API.
+- Handle partial updates for PATCH requests using marshmallow's `partial loading <https://marshmallow.readthedocs.io/en/latest/quickstart.html#partial-loading>`_ API.
 
 .. code-block:: python
 
@@ -97,7 +97,7 @@ Consider the following use cases:
         # Filter based on 'fields' query parameter
         only = request.args.get('fields', None)
         # Respect partial updates for PATCH requests
-        partial = request.method == 'PUT'
+        partial = request.method == 'PATCH'
         # Add current request to the schema's context
         return UserSchema(only=only, partial=partial, context={'request': request})
 
@@ -122,7 +122,7 @@ We can reduce boilerplate and improve [re]usability with a simple helper functio
             # Filter based on 'fields' query parameter
             only = request.args.get('fields', None)
             # Respect partial updates for PATCH requests
-            partial = request.method == 'PUT'
+            partial = request.method == 'PATCH'
             # Add current request to the schema's context
             # and ensure we're always using strict mode
             return schema_cls(
@@ -140,6 +140,26 @@ Now we can attach input schemas to our view functions like so:
     def profile_view(args):
         # ...
 
+
+Custom Fields
+-------------
+
+See the "Custom Fields" section of the marshmallow docs for a detailed guide on defining custom fields which you can pass to webargs parsers: https://marshmallow.readthedocs.io/en/latest/custom_fields.html.
+
+Using ``Method`` and ``Function`` Fields with webargs
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Using the :class:`Method <marshmallow.fields.Method>` and :class:`Function <marshmallow.fields.Function>` fields requires that you pass the ``deserialize`` parameter.
+
+
+.. code-block:: python
+
+    @use_args({
+        'cube': fields.Function(deserialize=lambda x: int(x) ** 3)
+    })
+    def math_view(args):
+        cube = args['cube']
+        # ...
 
 .. _custom-parsers:
 
@@ -191,6 +211,107 @@ To add your own parser, extend :class:`Parser <webargs.core.Parser>` and impleme
         for k, v in dict_.items():
             structure_dict_pair(r, k, v)
         return r
+
+Bulk-type Arguments
+-------------------
+
+In order to parse a JSON array of objects, pass ``many=True`` to your input ``Schema`` .
+
+For example, you might implement JSON PATCH according to `RFC 6902 <https://tools.ietf.org/html/rfc6902>`_ like so:
+
+
+.. code-block:: python
+
+    from webargs import fields
+    from webargs.flaskparser import use_args
+    from marshmallow import Schema, validate
+
+    class PatchSchema(Schema):
+        op = fields.Str(
+            required=True,
+            validate=validate.OneOf(['add', 'remove', 'replace', 'move', 'copy'])
+        )
+        path = fields.Str(required=True)
+        value = fields.Str(required=True)
+
+        class Meta:
+            strict = True
+
+
+    @app.route('/profile/', methods=['patch'])
+    @use_args(PatchSchema(many=True), locations=('json', ))
+    def patch_blog(args):
+        """Implements JSON Patch for the user profile
+
+        Example JSON body:
+
+        [
+            {"op": "replace", "path": "/email", "value": "mynewemail@test.org"}
+        ]
+        """
+        # ...
+
+Mixing Locations
+----------------
+
+Arguments for different locations can be specified by passing ``location`` to each field individually:
+
+.. code-block:: python
+
+    @app.route('/stacked', methods=['POST'])
+    @use_args({
+        'page': fields.Int(location='query')
+        'q': fields.Str(location='query')
+        'name': fields.Str(location='json'),
+    })
+    def viewfunc(args):
+        # ...
+
+Alternatively, you can pass multiple locations to `use_args <webargs.core.Parser.use_args>`:
+
+.. code-block:: python
+
+    @app.route('/stacked', methods=['POST'])
+    @use_args({
+        'page': fields.Int()
+        'q': fields.Str()
+        'name': fields.Str(),
+    } , locations=('query', 'json'))
+    def viewfunc(args):
+        # ...
+
+However, this allows ``page`` and ``q`` to be passed in the request body and ``name`` to be passed as a query parameter.
+
+To restrict the arguments to single locations without having to pass ``location`` to every field, you can call the `use_args <webargs.core.Parser.use_args>` multiple times:
+
+.. code-block:: python
+
+    query_args = {
+        'page': fields.Int()
+        'q': fields.Int()
+    }
+    json_args = {
+        'name': fields.Str(),
+    }
+    @app.route('/stacked', methods=['POST'])
+    @use_args(query_args, locations=('query', ))
+    @use_args(json_args, locations=('json', ))
+    def viewfunc(query_parsed, json_parsed):
+        # ...
+
+To reduce boilerplate, you could create shortcuts, like so:
+
+.. code-block:: python
+
+    import functools
+
+    query = functools.partial(use_args, locations=('query', ))
+    body = functools.partial(use_args, locations=('json', ))
+
+    @query(query_args)
+    @body(json_args)
+    def viewfunc(query_parsed, json_parsed):
+        # ...
 
 Next Steps
 ----------

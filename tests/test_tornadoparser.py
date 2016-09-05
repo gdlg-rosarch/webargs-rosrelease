@@ -552,8 +552,18 @@ class EchoHandler(tornado.web.RequestHandler):
     def post(self, args):
         self.write(args)
 
+class EchoWithParamHandler(tornado.web.RequestHandler):
+    ARGS = {
+        'name': fields.Str(),
+    }
+
+    @use_args(ARGS)
+    def get(self, id, args):
+        self.write(args)
+
 echo_app = tornado.web.Application([
-    (r'/echo', EchoHandler)
+    (r'/echo', EchoHandler),
+    (r'/echo_with_param/(\d+)', EchoWithParamHandler),
 ])
 
 class TestApp(AsyncHTTPTestCase):
@@ -575,6 +585,12 @@ class TestApp(AsyncHTTPTestCase):
         res = self.fetch('/echo', method='GET', headers={'Content-Type': 'application/json'})
         json_body = parse_json(res.body)
         assert 'name' not in json_body
+
+    def test_get_path_param(self):
+        res = self.fetch('/echo_with_param/42?name=Steve',
+                         method='GET', headers={'Content-Type': 'application/json'})
+        json_body = parse_json(res.body)
+        assert json_body == {'name': 'Steve'}
 
 class ValidateHandler(tornado.web.RequestHandler):
     ARGS = {
@@ -603,9 +619,23 @@ class AlwaysFailHandler(tornado.web.RequestHandler):
         self.write(args)
 
 
+def always_fail_with_400(val):
+    raise ValidationError('something went wrong', status_code=400)
+
+class AlwaysFailWith400Handler(tornado.web.RequestHandler):
+    ARGS = {
+        'name': fields.Str(validate=always_fail_with_400)
+    }
+
+    @use_args(ARGS)
+    def post(self, args):
+        self.write(args)
+
+
 validate_app = tornado.web.Application([
     (r'/echo', ValidateHandler),
     (r'/alwaysfail', AlwaysFailHandler),
+    (r'/alwaysfailwith400', AlwaysFailWith400Handler),
 ])
 
 class TestValidateApp(AsyncHTTPTestCase):
@@ -631,6 +661,24 @@ class TestValidateApp(AsyncHTTPTestCase):
             body=json.dumps({'occupation': 'pizza'}),
         )
         assert res.code == 422
+
+    def test_user_validator_returns_422_by_default(self):
+        res = self.fetch(
+            '/alwaysfail',
+            method='POST',
+            headers={'Content-Type': 'application/json'},
+            body=json.dumps({'name': 'Steve'}),
+        )
+        assert res.code == 422
+
+    def test_user_validator_with_status_code(self):
+        res = self.fetch(
+            '/alwaysfailwith400',
+            method='POST',
+            headers={'Content-Type': 'application/json'},
+            body=json.dumps({'name': 'Steve'}),
+        )
+        assert res.code == 400
 
     def test_use_kwargs_with_error(self):
         res = self.fetch(

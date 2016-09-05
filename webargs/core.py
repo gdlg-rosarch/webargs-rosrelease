@@ -13,7 +13,7 @@ except ImportError:
 
 import marshmallow as ma
 from marshmallow.compat import iteritems
-from marshmallow.utils import missing
+from marshmallow.utils import missing, is_collection
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,9 @@ class ValidationError(WebargsError, ma.exceptions.ValidationError):
     def __init__(self, message, status_code=DEFAULT_VALIDATION_STATUS, headers=None, **kwargs):
         self.status_code = status_code
         self.headers = headers
-        ma.exceptions.ValidationError.__init__(self, message, **kwargs)
+        ma.exceptions.ValidationError.__init__(
+            self, message, status_code=status_code, headers=headers, **kwargs
+        )
 
     def __repr__(self):
         return 'ValidationError({0!r}, status_code={1}, headers={2})'.format(
@@ -85,7 +87,7 @@ def argmap2schema(argmap, instance=False, **kwargs):
     class Meta(object):
         strict = True
     attrs = dict(argmap, Meta=Meta)
-    cls = type(str('ArgSchema'), (ma.Schema,), attrs)
+    cls = type(str(''), (ma.Schema,), attrs)
     return cls if not instance else cls(**kwargs)
 
 def is_multiple(field):
@@ -112,27 +114,41 @@ def is_json(mimetype):
         return True
     return False
 
-def get_value(d, name, field):
+def get_value(data, name, field, allow_many_nested=False):
     """Get a value from a dictionary. Handles ``MultiDict`` types when
     ``multiple=True``. If the value is not found, return `missing`.
 
-    :param dict d: Dictionary to pull the value from.
+    :param object data: Mapping (e.g. :type:`dict`) or list-like instance to
+        pull the value from.
     :param str name: Name of the key.
     :param bool multiple: Whether to handle multiple values.
+    :param bool allow_many_nested: Whether to allow a list of nested objects
+        (it is valid only for JSON format, so it is set to True in ``parse_json``
+        methods).
     """
+    missing_value = missing
+    if allow_many_nested and isinstance(field, ma.fields.Nested) and field.many:
+        if is_collection(data):
+            return data
+        missing_value = []
+
+    if not hasattr(data, 'get'):
+        return missing_value
+
     multiple = is_multiple(field)
-    val = d.get(name, missing)
+    val = data.get(name, missing_value)
     if multiple and val is not missing:
-        if hasattr(d, 'getlist'):
-            return d.getlist(name)
-        elif hasattr(d, 'getall'):
-            return d.getall(name)
+        if hasattr(data, 'getlist'):
+            return data.getlist(name)
+        elif hasattr(data, 'getall'):
+            return data.getall(name)
         elif isinstance(val, (list, tuple)):
             return val
+        if val is None:
+            return None
         else:
             return [val]
     return val
-
 
 def parse_json(s):
     if isinstance(s, bytes):
@@ -233,9 +249,8 @@ class Parser(object):
         else:
             locations_to_check = self._validated_locations(locations or self.locations)
 
-        key = field.load_from or name
         for location in locations_to_check:
-            value = self._get_value(key, field, req=req, location=location)
+            value = self._get_value(name, field, req=req, location=location)
             # Found the value; validate and return it
             if value is not missing:
                 return value
@@ -243,12 +258,24 @@ class Parser(object):
 
     def _parse_request(self, schema, req, locations):
         """Return a parsed arguments dictionary for the current request."""
-        argdict = schema.fields
-        parsed = {}
-        for argname, field_obj in iteritems(argdict):
-            parsed_value = self.parse_arg(argname, field_obj, req,
-                locations=locations or self.locations)
-            parsed[argname] = parsed_value
+        if schema.many:
+            assert 'json' in locations, "schema.many=True is only supported for JSON location"
+            # The ad hoc Nested field is more like a workaround or a helper, and it servers its
+            # purpose fine. However, if somebody has a desire to re-design the support of
+            # bulk-type arguments, go ahead.
+            parsed = self.parse_arg(
+                name='json',
+                field=ma.fields.Nested(schema, many=True),
+                req=req,
+                locations=locations
+            )
+        else:
+            argdict = schema.fields
+            parsed = {}
+            for argname, field_obj in iteritems(argdict):
+                argname = field_obj.load_from or argname
+                parsed_value = self.parse_arg(argname, field_obj, req, locations)
+                parsed[argname] = parsed_value
         return parsed
 
     def load(self, data, argmap):
@@ -267,11 +294,10 @@ class Parser(object):
             # Raise a webargs error instead
             error = ValidationError(
                 error.messages,
-                status_code=getattr(error, 'status_code', self.DEFAULT_VALIDATION_STATUS),
-                headers=getattr(error, 'headers', {}),
                 field_names=error.field_names,
                 fields=error.fields,
-                data=error.data
+                data=error.data,
+                **getattr(error, 'kwargs', {})
             )
         if self.error_callback:
             self.error_callback(error)
@@ -333,7 +359,7 @@ class Parser(object):
         finally:
             self.clear_cache()
         if force_all:
-            fill_in_missing_args(ret, argmap)
+            fill_in_missing_args(ret, schema)
         return ret
 
     def clear_cache(self):
@@ -399,7 +425,7 @@ class Parser(object):
 
                 if not req_obj:
                     req_obj = self.get_request_from_view_args(func, args, kwargs)
-                # NOTE: At this point, argmap may be a Schema, callable, or dict
+                # NOTE: At this point, argmap may be a Schema, or a callable
                 parsed_args = self.parse(argmap, req=req_obj,
                                          locations=locations, validate=validate,
                                          force_all=force_all)

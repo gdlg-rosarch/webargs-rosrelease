@@ -1,6 +1,69 @@
 Changelog
 ---------
 
+1.3.4 (2016-06-11)
+******************
+
+Bug fixes:
+
+* Fix bug in parsing form in Falcon>=1.0.
+
+1.3.3 (2016-05-29)
+******************
+
+Bug fixes:
+
+* Fix behavior for nullable List fields (:issue:`107`). Thanks :user:`shaicantor` for reporting.
+
+1.3.2 (2016-04-14)
+******************
+
+Bug fixes:
+
+* Fix passing a schema factory to ``use_kwargs`` (:issue:`103`). Thanks :user:`ksesong` for reporting.
+
+1.3.1 (2016-04-13)
+******************
+
+Bug fixes:
+
+* Fix memory leak when calling ``parser.parse`` with a ``dict`` in a view (:issue:`101`). Thanks :user:`frankslaughter` for reporting.
+* aiohttpparser: Fix bug in handling bulk-type arguments.
+
+Support:
+
+* Massive refactor of tests (:issue:`98`).
+* Docs: Fix incorrect use_args example in Tornado section (:issue:`100`). Thanks :user:`frankslaughter` for reporting.
+* Docs: Add "Mixing Locations" section (:issue:`90`). Thanks :user:`tuukkamustonen`.
+
+1.3.0 (2016-04-05)
+******************
+
+Features:
+
+* Add bulk-type arguments support for JSON parsing by passing ``many=True`` to a ``Schema`` (:issue:`81`). Thanks :user:`frol`.
+
+Bug fixes:
+
+* Fix JSON parsing in Flask<=0.9.0. Thanks :user:`brettdh` for the PR.
+* Fix behavior of ``status_code`` argument to ``ValidationError`` (:issue:`85`). This requires **marshmallow>=2.7.0**. Thanks :user:`ParthGandhi` for reporting.
+
+
+Support:
+
+* Docs: Add "Custom Fields" section with example of using a ``Function`` field (:issue:`94`). Thanks :user:`brettdh` for the suggestion.
+
+1.2.0 (2016-01-04)
+******************
+
+Features:
+
+* Add ``view_args`` request location to ``FlaskParser`` (:issue:`82`). Thanks :user:`oreza` for the suggestion.
+
+Bug fixes:
+
+* Use the value of ``load_from`` as the key for error messages when it is provided (:issue:`83`). Thanks :user:`immerrr` for the catch and patch.
+
 1.1.1 (2015-11-14)
 ******************
 
@@ -74,7 +137,7 @@ Bug fixes:
 0.16.0 (2015-09-27)
 *******************
 
-The major change in this release is that webargs now depends on `marshmallow <https://marshmallow.readthedocs.org/en/latest/>`_ for defining arguments and validation.
+The major change in this release is that webargs now depends on `marshmallow <https://marshmallow.readthedocs.io/en/latest/>`_ for defining arguments and validation.
 
 Your code will need to be updated to use ``Fields`` rather than ``Args``.
 

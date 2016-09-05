@@ -4,8 +4,22 @@
 import falcon
 
 from webargs import core
+from falcon.util.uri import parse_query_string
 
-HTTP_422 = '422 Unprocessable entity'
+HTTP_422 = '422 Unprocessable Entity'
+
+# Mapping of int status codes to string status
+status_map = {
+    422: HTTP_422,
+}
+# Collect all exceptions from falcon.status_codes
+def _find_exceptions():
+    for name in filter(lambda n: n.startswith('HTTP'), dir(falcon.status_codes)):
+        status = getattr(falcon.status_codes, name)
+        status_code = int(status.split(' ')[0])
+        status_map[status_code] = status
+_find_exceptions()
+del _find_exceptions
 
 def is_json_request(req):
     content_type = req.get_header('Content-Type')
@@ -22,6 +36,29 @@ def parse_json_body(req):
                 return core.parse_json(body)
             except (TypeError, ValueError):
                 pass
+    return {}
+
+# NOTE: Adapted from falcon.request.Request._parse_form_urlencoded
+def parse_form_body(req):
+    if (
+        req.content_type is not None and
+        'application/x-www-form-urlencoded' in req.content_type
+    ):
+        body = req.stream.read()
+        try:
+            body = body.decode('ascii')
+        except UnicodeDecodeError:
+            body = None
+            req.log_error('Non-ASCII characters found in form body '
+                            'with Content-Type of '
+                            'application/x-www-form-urlencoded. Body '
+                            'will be ignored.')
+
+        if body:
+            return parse_query_string(
+                body,
+                keep_blank_qs_values=req.options.keep_blank_qs_values,
+            )
     return {}
 
 class HTTPError(falcon.HTTPError):
@@ -48,15 +85,28 @@ class FalconParser(core.Parser):
         return core.get_value(req.params, name, field)
 
     def parse_form(self, req, name, field):
-        """Pull a form value from the request."""
-        return core.get_value(req.params, name, field)
+        """Pull a form value from the request.
+
+        .. note::
+
+            The request stream will be read and left at EOF.
+        """
+        form = self._cache.get('form')
+        if form is None:
+            self._cache['form'] = form = parse_form_body(req)
+        return core.get_value(form, name, field)
 
     def parse_json(self, req, name, field):
-        """Pull a JSON body value from the request."""
-        json_body = self._cache.get('json')
-        if json_body is None:
-            self._cache['json'] = json_body = parse_json_body(req)
-        return core.get_value(json_body, name, field)
+        """Pull a JSON body value from the request.
+
+        .. note::
+
+            The request stream will be read and left at EOF.
+        """
+        json_data = self._cache.get('json_data')
+        if json_data is None:
+            self._cache['json_data'] = json_data = parse_json_body(req)
+        return core.get_value(json_data, name, field, allow_many_nested=True)
 
     def parse_headers(self, req, name, field):
         """Pull a header value from the request."""
@@ -84,7 +134,10 @@ class FalconParser(core.Parser):
 
     def handle_error(self, error):
         """Handles errors during parsing."""
-        raise HTTPError(HTTP_422, errors=error.messages)
+        status = status_map.get(error.status_code)
+        if status is None:
+            raise LookupError('Status code {0} not supported'.format(error.status_code))
+        raise HTTPError(status, errors=error.messages)
 
 parser = FalconParser()
 use_args = parser.use_args

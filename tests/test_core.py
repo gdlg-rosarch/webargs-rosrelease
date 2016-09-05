@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import itertools
 import mock
 import sys
 
 import pytest
-from marshmallow import Schema, post_load
+import marshmallow
+from marshmallow import Schema, post_load, class_registry
 from werkzeug.datastructures import MultiDict as WerkMultiDict
 
 PY26 = sys.version_info[0] == 2 and int(sys.version_info[1]) < 7
@@ -18,20 +20,27 @@ from webargs import (
 )
 from webargs.core import Parser, get_value, argmap2schema, is_json, get_mimetype
 
+MARSHMALLOW_VERSION_INFO = tuple(map(int, marshmallow.__version__.split('.')))
 
 class MockRequestParser(Parser):
     """A minimal parser implementation that parses mock requests."""
 
-    def parse_json(self, web_request, name, arg):
-        return get_value(web_request.json, name, arg)
+    def parse_querystring(self, req, name, field):
+        return get_value(req.query, name, field)
 
-    def parse_cookies(self, web_request, name, arg):
-        return get_value(web_request.cookies, name, arg)
+    def parse_json(self, req, name, field):
+        return get_value(req.json, name, field)
+
+    def parse_cookies(self, req, name, field):
+        return get_value(req.cookies, name, field)
 
 
-@pytest.fixture
+@pytest.yield_fixture(scope='function')
 def web_request():
-    return mock.Mock()
+    req = mock.Mock()
+    req.query = {}
+    yield req
+    req.query = {}
 
 @pytest.fixture
 def parser():
@@ -103,6 +112,18 @@ def test_parse_required_arg_raises_validation_error(parser, web_request):
         parser.parse(args, web_request)
     assert 'Missing data for required field.' in str(excinfo)
 
+def test_arg_not_required_excluded_in_parsed_output(parser, web_request):
+    web_request.json = {'first': 'Steve'}
+    args = {'first': fields.Str(), 'last': fields.Str()}
+    result = parser.parse(args, web_request)
+    assert result == {'first': 'Steve'}
+
+def test_arg_allow_none(parser, web_request):
+    web_request.json = {'first': 'Steve', 'last': None}
+    args = {'first': fields.Str(), 'last': fields.Str(allow_none=True)}
+    result = parser.parse(args, web_request)
+    assert result == {'first': 'Steve', 'last': None}
+
 @mock.patch('webargs.core.Parser.parse_json')
 def test_parse_required_arg(parse_json, web_request):
     arg = fields.Field(required=True)
@@ -117,6 +138,19 @@ def test_parse_required_list(parser, web_request):
     with pytest.raises(ValidationError) as excinfo:
         parser.parse(args, web_request)
     assert excinfo.value.messages['foo'][0] == 'Missing data for required field.'
+
+# Regression test for https://github.com/sloria/webargs/issues/107
+def test_parse_list_allow_none(parser, web_request):
+    web_request.json = {'foo': None}
+    args = {'foo': fields.List(fields.Field(allow_none=True), allow_none=True)}
+    assert parser.parse(args, web_request) == {'foo': None}
+
+def test_parse_list_dont_allow_none(parser, web_request):
+    web_request.json = {'foo': None}
+    args = {'foo': fields.List(fields.Field(), allow_none=False)}
+    with pytest.raises(ValidationError) as excinfo:
+        parser.parse(args, web_request)
+    assert excinfo.value.messages['foo'][0] == 'Field may not be null.'
 
 def test_parse_empty_list(parser, web_request):
     web_request.json = {'things': []}
@@ -145,6 +179,17 @@ def test_default_can_be_none(parser, web_request):
     result = parser.parse(args, web_request, locations=('json', ))
     assert result['val'] is None
 
+# Regression test for issue #11
+def test_arg_with_default_and_location(parser, web_request):
+    web_request.json = {}
+    args = {
+        'p': fields.Int(
+            missing=1,
+            validate=lambda p: p > 0,
+            error=u"La page demandée n'existe pas",
+            location='querystring'),
+    }
+    assert parser.parse(args, web_request) == {'p': 1}
 
 def test_value_error_raised_if_parse_arg_called_with_invalid_location(web_request):
     field = fields.Field()
@@ -351,6 +396,17 @@ def test_parse_with_load_from(web_request):
     assert parsed == {'content_type': 'application/json'}
 
 
+def test_parse_with_load_from_retains_field_name_in_error(web_request):
+    web_request.json = {'Content-Type': 12345}
+
+    parser = MockRequestParser()
+    args = {'content_type': fields.Str(load_from='Content-Type')}
+    with pytest.raises(ValidationError) as excinfo:
+        parser.parse(args, web_request, locations=('json',))
+    assert 'Content-Type' in excinfo.value.messages
+    assert excinfo.value.messages['Content-Type'] == ['Not a valid string.']
+
+
 def test_parse_with_force_all(web_request, parser):
     web_request.json = {'foo': 42}
 
@@ -444,6 +500,84 @@ def test_use_args(web_request, parser):
     assert viewfunc() == {'username': 'foo', 'password': 'bar'}
 
 
+def test_use_args_stacked(web_request, parser):
+    query_args = {
+        'page': fields.Int()
+    }
+    json_args = {
+        'username': fields.Str(),
+    }
+    web_request.json = {'username': 'foo'}
+    web_request.query = {'page': 42}
+
+    @parser.use_args(query_args, web_request, locations=('query', ))
+    @parser.use_args(json_args, web_request, locations=('json', ))
+    def viewfunc(query_parsed, json_parsed):
+        return {
+            'json': json_parsed,
+            'query': query_parsed
+        }
+    assert viewfunc() == {
+        'json': {'username': 'foo'},
+        'query': {'page': 42}
+    }
+
+def test_use_kwargs_stacked(web_request, parser):
+    query_args = {
+        'page': fields.Int(error_messages={'invalid': '{input} not a valid integer'})
+    }
+    json_args = {
+        'username': fields.Str(),
+    }
+    web_request.json = {'username': 'foo'}
+    web_request.query = {'page': 42}
+
+    @parser.use_kwargs(query_args, web_request, locations=('query', ))
+    @parser.use_kwargs(json_args, web_request, locations=('json', ))
+    def viewfunc(page, username):
+        return {
+            'json': {'username': username},
+            'query': {'page': page}
+        }
+    assert viewfunc() == {
+        'json': {'username': 'foo'},
+        'query': {'page': 42}
+    }
+
+
+def test_use_args_doesnt_change_docstring(parser):
+    @parser.use_args({'val': fields.Int()})
+    def viewfunc(args):
+        """View docstring"""
+        pass
+    assert viewfunc.__doc__ == 'View docstring'
+
+def test_use_kwargs_doesnt_change_docstring(parser):
+    @parser.use_kwargs({'val': fields.Int()})
+    def viewfunc(val):
+        """View docstring"""
+        pass
+    assert viewfunc.__doc__ == 'View docstring'
+
+def test_list_allowed_missing(web_request, parser):
+    args = {'name': fields.List(fields.Str())}
+    web_request.json = {'fakedata': True}
+    result = parser.parse(args, web_request)
+    assert result == {}
+
+def test_int_list_allowed_missing(web_request, parser):
+    args = {'name': fields.List(fields.Int())}
+    web_request.json = {'fakedata': True}
+    result = parser.parse(args, web_request)
+    assert result == {}
+
+def test_multiple_arg_required_with_int_conversion(web_request, parser):
+    args = {'ids': fields.List(fields.Int(), required=True)}
+    web_request.json = {'fakedata': True}
+    with pytest.raises(ValidationError) as excinfo:
+        parser.parse(args, web_request)
+    assert excinfo.value.messages == {'ids': ['Missing data for required field.']}
+
 def test_parse_with_callable(web_request, parser):
 
     web_request.json = {'foo': 42}
@@ -510,11 +644,47 @@ class TestPassingSchema:
             return args
         assert viewfunc() == {'email': 'foo@bar.com', 'password': 'bar'}
 
+    def test_passing_schema_factory_to_parse(self, parser, web_request):
+        web_request.json = {'id': 12, 'email': 'foo@bar.com', 'password': 'bar'}
+
+        def factory(req):
+            assert req is web_request
+            return self.UserSchema(context={'request': req}, strict=True)
+
+        result = parser.parse(factory, web_request)
+
+        assert result == {'email': 'foo@bar.com', 'password': 'bar'}
+
+    def test_use_args_can_be_passed_a_schema_factory(self, web_request, parser):
+        web_request.json = {'id': 12, 'email': 'foo@bar.com', 'password': 'bar'}
+
+        def factory(req):
+            assert req is web_request
+            return self.UserSchema(context={'request': req}, strict=True)
+
+        @parser.use_args(factory, web_request)
+        def viewfunc(args):
+            return args
+
+        assert viewfunc() == {'email': 'foo@bar.com', 'password': 'bar'}
+
     def test_use_kwargs_can_be_passed_a_schema(self, web_request, parser):
 
         web_request.json = {'id': 12, 'email': 'foo@bar.com', 'password': 'bar'}
 
         @parser.use_kwargs(self.UserSchema(strict=True), web_request)
+        def viewfunc(email, password):
+            return {'email': email, 'password': password}
+        assert viewfunc() == {'email': 'foo@bar.com', 'password': 'bar'}
+
+    def test_use_kwargs_can_be_passed_a_schema_factory(self, web_request, parser):
+        web_request.json = {'id': 12, 'email': 'foo@bar.com', 'password': 'bar'}
+
+        def factory(req):
+            assert req is web_request
+            return self.UserSchema(context={'request': req}, strict=True)
+
+        @parser.use_kwargs(factory, web_request)
         def viewfunc(email, password):
             return {'email': email, 'password': password}
         assert viewfunc() == {'email': 'foo@bar.com', 'password': 'bar'}
@@ -750,6 +920,20 @@ def test_argmap2schema():
     assert schema.fields['id'].required
     assert schema.opts.strict is True
 
+# Regression test for https://github.com/sloria/webargs/issues/101
+@pytest.mark.skipif(MARSHMALLOW_VERSION_INFO < (2, 7, 1),
+                    reason='will only work on marshmallow>=2.7.1')
+def test_argmap2schema_doesnt_add_to_class_registry():
+    old_n_entries = len(
+        list(itertools.chain([classes for _, classes in class_registry._registry.items()]))
+    )
+    argmap = {'id': fields.Field()}
+    argmap2schema(argmap)
+    argmap2schema(argmap)
+    new_n_entries = len(
+        list(itertools.chain([classes for _, classes in class_registry._registry.items()]))
+    )
+    assert new_n_entries == old_n_entries
 
 def test_argmap2schema_with_nesting():
     argmap = {

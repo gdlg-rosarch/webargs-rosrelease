@@ -22,3 +22,7 @@ Contributors (chronological)
 * @marcellarius <https://github.com/marcellarius>
 * Damian Heard <https://github.com/DamianHeard>
 * Daniel Imhoff <https://github.com/dwieeb>
+* immerrr <https://github.com/immerrr>
+* Brett Higgins <https://github.com/brettdh>
+* Vlad Frolov <https://github.com/frol>
+* Tuukka Mustonen <https://github.com/tuukkamustonen>

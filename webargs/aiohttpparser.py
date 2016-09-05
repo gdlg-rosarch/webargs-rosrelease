@@ -27,6 +27,7 @@ import asyncio
 import json
 
 from aiohttp import web
+from aiohttp import web_exceptions
 
 from webargs import core
 from webargs.async import AsyncParser
@@ -39,6 +40,28 @@ def is_json_request(req):
 
 class HTTPUnprocessableEntity(web.HTTPClientError):
     status_code = 422
+
+# Mapping of status codes to exception classes
+# Adapted from werkzeug
+exception_map = {
+    422: HTTPUnprocessableEntity
+}
+# Collect all exceptions from aiohttp.web_exceptions
+def _find_exceptions():
+    for name in web_exceptions.__all__:
+        obj = getattr(web_exceptions, name)
+        try:
+            is_http_exception = issubclass(obj, web_exceptions.HTTPException)
+        except TypeError:
+            is_http_exception = False
+        if not is_http_exception or obj.status_code is None:
+            continue
+        old_obj = exception_map.get(obj.status_code, None)
+        if old_obj is not None and issubclass(obj, old_obj):
+            continue
+        exception_map[obj.status_code] = obj
+_find_exceptions()
+del _find_exceptions
 
 
 class AIOHTTPParser(AsyncParser):
@@ -65,13 +88,12 @@ class AIOHTTPParser(AsyncParser):
     @asyncio.coroutine
     def parse_json(self, req, name, field):
         """Pull a json value from the request."""
-        if req.has_body and is_json_request(req):
-            json_data = self._cache.get('json')
-            if json_data is None:
-                self._cache['json'] = yield from req.json()
-            return core.get_value(self._cache['json'], name, field)
-        else:
+        if not (req.has_body and is_json_request(req)):
             return core.missing
+        json_data = self._cache.get('json')
+        if json_data is None:
+            self._cache['json'] = json_data = yield from req.json()
+        return core.get_value(json_data, name, field, allow_many_nested=True)
 
     def parse_headers(self, req, name, field):
         """Pull a value from the header data."""
@@ -104,7 +126,10 @@ class AIOHTTPParser(AsyncParser):
 
     def handle_error(self, error):
         """Handle ValidationErrors and return a JSON response of error messages to the client."""
-        raise HTTPUnprocessableEntity(
+        error_class = exception_map.get(error.status_code)
+        if not error_class:
+            raise LookupError('No exception for {0}'.format(error.status_code))
+        raise error_class(
             body=json.dumps(error.messages).encode('utf-8'),
             content_type='application/json'
         )
