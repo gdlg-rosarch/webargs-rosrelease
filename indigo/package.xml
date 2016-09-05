@@ -22,9 +22,10 @@
 
   <depend version_gte="2.0.0">marshmallow</depend>
 
+  <test_depend version_gte="2.0.18">webtest</test_depend>  <!-- 2.0.18 built on indigo since trusty version is too old -->
+
   <test_depend>python-pytest</test_depend>
   <test_depend>python-mock</test_depend>
-  <test_depend>python-webtest</test_depend>
   <test_depend>python-bottle</test_depend>
   <test_depend>python-falcon</test_depend>
   <test_depend>python-pyramid</test_depend>
