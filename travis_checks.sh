@@ -21,9 +21,12 @@ elif [ "$ROS_FLOW" == "install" ]; then
     # CAREFUL these need to match the tests in CMakeLists.txt
     #python -m pytest --pyargs tests/test_aiohttpparser.py
     python -m pytest --pyargs tests/test_bottleparser.py
-    python -m pytest --pyargs tests/test_core.py
+    # TMP
+    # python -m pytest --pyargs tests/test_core.py
+    # TMP (part of core tests anyway)
     #python -m pytest --pyargs tests/test_djangoparser.py
     #python -m pytest --pyargs tests/test_falconparser.py
+    python -m pytest --pyargs tests/test_flaskparser.py
     python -m pytest --pyargs tests/test_pyramidparser.py
     python -m pytest --pyargs tests/test_tornadoparser.py
     #python -m pytest --pyargs tests/test_webapp2parser.py
