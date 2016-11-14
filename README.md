@@ -1,3 +1,26 @@
+## webargs (indigo) - 1.3.4-5
+
+The packages in the `webargs` repository were released into the `indigo` distro by running `/usr/bin/bloom-release --rosdistro indigo --track indigo webargs` on `Mon, 14 Nov 2016 08:25:40 -0000`
+
+The `webargs` package was released.
+
+Version of package(s) in repository `webargs`:
+
+- upstream repository: https://github.com/sloria/webargs.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `1.3.4-4`
+- new version: `1.3.4-5`
+
+Versions of tools used:
+
+- bloom version: `0.5.23`
+- catkin_pkg version: `0.2.10`
+- rosdep version: `0.11.5`
+- rosdistro version: `0.5.0`
+- vcstools version: `0.1.39`
+
+
 ## webargs (indigo) - 1.3.4-4
 
 The packages in the `webargs` repository were released into the `indigo` distro by running `/usr/bin/bloom-release --rosdistro indigo --track indigo webargs` on `Mon, 14 Nov 2016 08:05:53 -0000`
