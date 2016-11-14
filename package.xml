@@ -30,6 +30,7 @@
 
   <test_depend version_gte="0.12.3">python-bottle</test_depend>
   <test_depend version_gte="0.3.0">python-falcon</test_depend>
+  <test_depend version_gte="0.3.0">python-flask</test_depend>
   <test_depend version_gte="1.5.2">python-pyramid</test_depend>
   <test_depend version_gte="4.0">tornado</test_depend>  <!-- using 4.2.1 built on indigo since trusty version is too old -->
   <!-- Temporary disabling django tests
