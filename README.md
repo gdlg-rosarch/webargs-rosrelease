@@ -1,3 +1,26 @@
+## webargs (jade) - 1.3.4-2
+
+The packages in the `webargs` repository were released into the `jade` distro by running `/usr/bin/bloom-release --rosdistro jade --track jade webargs` on `Thu, 23 Mar 2017 01:38:30 -0000`
+
+The `webargs` package was released.
+
+Version of package(s) in repository `webargs`:
+
+- upstream repository: https://github.com/sloria/webargs.git
+- release repository: https://github.com/asmodehn/webargs-rosrelease.git
+- rosdistro version: `1.3.4-0`
+- old version: `1.3.4-1`
+- new version: `1.3.4-2`
+
+Versions of tools used:
+
+- bloom version: `0.5.25`
+- catkin_pkg version: `0.3.1`
+- rosdep version: `0.11.5`
+- rosdistro version: `0.6.1`
+- vcstools version: `0.1.39`
+
+
 ## webargs (jade) - 1.3.4-1
 
 The packages in the `webargs` repository were released into the `jade` distro by running `/usr/bin/bloom-release --rosdistro jade --track jade webargs` on `Fri, 06 Jan 2017 08:04:58 -0000`
