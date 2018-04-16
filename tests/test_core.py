@@ -5,7 +5,7 @@ import sys
 
 import pytest
 import marshmallow
-from marshmallow import Schema, post_load, class_registry
+from marshmallow import Schema, post_load, class_registry, validates_schema
 from werkzeug.datastructures import MultiDict as WerkMultiDict
 
 PY26 = sys.version_info[0] == 2 and int(sys.version_info[1]) < 7
@@ -268,7 +268,7 @@ def test_custom_location_handler(web_request):
 
     @parser.location_handler('data')
     def parse_data(req, name, arg):
-        return req.data.get(name)
+        return req.data.get(name, missing)
 
     result = parser.parse({'foo': fields.Int()}, web_request, locations=('data', ))
     assert result['foo'] == 42
@@ -279,8 +279,7 @@ def test_custom_location_handler_with_load_from(web_request):
 
     @parser.location_handler('data')
     def parse_data(req, name, arg):
-        assert name == 'X-Foo'
-        return req.data.get(name)
+        return req.data.get(name, missing)
 
     result = parser.parse({'x_foo': fields.Int(load_from='X-Foo')},
         web_request, locations=('data', ))
@@ -395,6 +394,14 @@ def test_parse_with_load_from(web_request):
     parsed = parser.parse(args, web_request, locations=('json',))
     assert parsed == {'content_type': 'application/json'}
 
+# https://github.com/sloria/webargs/issues/118
+def test_load_from_is_checked_after_given_key(web_request):
+    web_request.json = {'content_type': 'application/json'}
+
+    parser = MockRequestParser()
+    args = {'content_type': fields.Field(load_from='Content-Type')}
+    parsed = parser.parse(args, web_request, locations=('json',))
+    assert parsed == {'content_type': 'application/json'}
 
 def test_parse_with_load_from_retains_field_name_in_error(web_request):
     web_request.json = {'Content-Type': 12345}
@@ -745,6 +752,21 @@ class TestPassingSchema:
             viewfunc()
         assert excinfo.value.args[0] == {'email': ['Not a valid email address.']}
 
+    # Regression test for https://github.com/sloria/webargs/issues/146
+    def test_parse_does_not_add_missing_values_to_schema_validator(self, web_request, parser):
+        class UserSchema(Schema):
+            name = fields.Str()
+            location = fields.Field(required=False)
+
+            @validates_schema(pass_original=True)
+            def validate_schema(self, data, original_data):
+                assert 'location' not in original_data
+                return True
+
+        web_request.json = {'name': 'Eric Cartman'}
+        res = parser.parse(UserSchema, web_request, locations=('json', ))
+        assert res == {'name': 'Eric Cartman'}
+
 
 def test_use_args_with_custom_locations_in_parser(web_request, parser):
     custom_args = {
@@ -824,6 +846,16 @@ def test_delimited_list_load_list(web_request, parser):
 
     parsed = parser.parse(schema, web_request)
     assert parsed['ids'] == [1, 2, 3]
+
+# Regresion test for https://github.com/sloria/webargs/issues/149
+def test_delimited_list_passed_invalid_type(web_request, parser):
+    web_request.json = {'ids': 1}
+    schema_cls = argmap2schema({'ids': fields.DelimitedList(fields.Int())})
+    schema = schema_cls()
+
+    with pytest.raises(ValidationError) as excinfo:
+        parser.parse(schema, web_request)
+    assert excinfo.value.messages == {'ids': ['Not a valid list.']}
 
 def test_missing_list_argument_not_in_parsed_result(web_request, parser):
     # arg missing in request
