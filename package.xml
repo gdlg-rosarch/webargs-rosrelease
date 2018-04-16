@@ -18,11 +18,11 @@
   <maintainer email="asmodehn@gmail.com">AlexV</maintainer>
 
   <buildtool_depend version_gte="0.6.18">catkin</buildtool_depend>
-  <build_depend version_gte="0.1.15">catkin_pip</build_depend>
+  <build_depend version_gte="0.2.0">catkin_pip</build_depend>
 
   <depend version_gte="2.0.0">marshmallow</depend>
 
-  <test_depend version_gte="2.0.18">webtest</test_depend>  <!-- 2.0.18 built on indigo since trusty version is too old -->
+  <test_depend version_gte="2.0.18">python-webtest</test_depend>  <!-- 2.0.18 built on indigo since trusty version is too old -->
   <test_depend version_gte="0.9.4">python-werkzeug</test_depend>
 
   <test_depend>python-pytest</test_depend>
