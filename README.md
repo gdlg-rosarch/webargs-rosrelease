@@ -1,3 +1,26 @@
+## webargs (kinetic) - 1.5.3-0
+
+The packages in the `webargs` repository were released into the `kinetic` distro by running `/usr/bin/bloom-release --rosdistro kinetic --track kinetic webargs` on `Mon, 16 Apr 2018 10:36:44 -0000`
+
+The `webargs` package was released.
+
+Version of package(s) in repository `webargs`:
+
+- upstream repository: https://github.com/sloria/webargs.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `1.3.4-2`
+- new version: `1.5.3-0`
+
+Versions of tools used:
+
+- bloom version: `0.6.4`
+- catkin_pkg version: `0.4.1`
+- rosdep version: `0.12.2`
+- rosdistro version: `0.6.8`
+- vcstools version: `0.1.40`
+
+
 ## webargs (kinetic) - 1.3.4-2
 
 The packages in the `webargs` repository were released into the `kinetic` distro by running `/usr/bin/bloom-release --rosdistro kinetic --track kinetic webargs` on `Mon, 16 Apr 2018 10:25:28 -0000`
