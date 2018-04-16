@@ -346,4 +346,5 @@ Releasing https://github.com/sloria/webargs for ROS
 
 | Indigo | Jade | Kinetic |
 |:------:|:----:|:-------:|
-| [![Build Status](https://travis-ci.org/asmodehn/webargs-rosrelease.svg?branch=release%2Findigo%2Fwebargs)](https://travis-ci.org/asmodehn/webargs-rosrelease) | [![Build Status](https://travis-ci.org/asmodehn/webargs-rosrelease.svg?branch=release%2Fjade%2Fwebargs)](https://travis-ci.org/asmodehn/webargs-rosrelease) | [![Build Status](https://travis-ci.org/asmodehn/webargs-rosrelease.svg?branch=release%2Fkinetic%2Fwebargs)](https://travis-ci.org/asmodehn/webargs-rosrelease) |
+| [![Build Status](https://travis-ci.org/pyros-dev/webargs-rosrelease.svg?branch=release%2Findigo%2Fwebargs)](https://travis-ci.org/pyros-dev/webargs-rosrelease) | [![Build Status](https://travis-ci.org/pyros-dev/webargs-rosrelease.svg?branch=release%2Fjade%2Fwebargs)](https://travis-ci.org/pyros-dev/webargs-rosrelease) | [![Build Status](https://travis-ci.org/pyros-dev/webargs-rosrelease.svg?branch=release%2Fkinetic%2Fwebargs)](https://travis-ci.org/pyros-dev/webargs-rosrelease) |
+
