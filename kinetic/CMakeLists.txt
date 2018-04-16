@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(webargs)
+project(python-webargs)
 
 # For ease of use, this CMakeLists allows to use this code from source, as if it were a normal catkin package.
 # However no ROS/catkin debian package is provided for it.
