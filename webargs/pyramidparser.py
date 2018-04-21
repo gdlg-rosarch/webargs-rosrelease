@@ -121,7 +121,6 @@ class PyramidParser(core.Parser):
                     return func(obj, *args, **kwargs)
                 else:
                     return func(obj, parsed_args, *args, **kwargs)
-            wrapper.__wrapped__ = func
             return wrapper
         return decorator
 

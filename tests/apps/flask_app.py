@@ -122,12 +122,6 @@ def echo_nested_many():
     }
     return J(parser.parse(args))
 
-@app.route('/echo_nested_many_load_from', methods=['POST'])
-def echo_nested_many_with_load_from():
-    args = {
-        'x_field': fields.Nested({'id': fields.Int()}, load_from='X-Field', many=True)
-    }
-    return J(parser.parse(args))
 
 class EchoMethodViewUseArgs(MethodView):
 
@@ -156,4 +150,5 @@ def echo_use_kwargs_missing(username, password):
 # Return validation errors as JSON
 @app.errorhandler(422)
 def handle_validation_error(err):
-    return J({'errors': err.exc.messages}), 422
+    exc = err.data['exc']
+    return J({'errors': exc.messages}), 422

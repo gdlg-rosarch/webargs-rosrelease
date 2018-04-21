@@ -144,11 +144,7 @@ The validator may return either a `boolean` or raise a :exc:`ValidationError <we
 
 .. note::
 
-    If a validator returns ``None``, validation will pass. A validator must return ``False`` or raise a `ValidationError <webargs.core.ValidationError>` for validation to fail.
-
-.. note::
-
-    You may pass a list of validators to the ``validate`` parameter.
+    You may also pass a list of validators to the ``validate`` parameter.
 
 .. note::
 

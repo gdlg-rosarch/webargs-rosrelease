@@ -130,6 +130,7 @@ def get_value(data, name, field, allow_many_nested=False):
     if allow_many_nested and isinstance(field, ma.fields.Nested) and field.many:
         if is_collection(data):
             return data
+        missing_value = []
 
     if not hasattr(data, 'get'):
         return missing_value
@@ -268,19 +269,13 @@ class Parser(object):
                 req=req,
                 locations=locations
             )
-            if parsed is missing:
-                parsed = []
         else:
             argdict = schema.fields
             parsed = {}
             for argname, field_obj in iteritems(argdict):
+                argname = field_obj.load_from or argname
                 parsed_value = self.parse_arg(argname, field_obj, req, locations)
-                # If load_from is specified on the field, try to parse from that key
-                if parsed_value is missing and field_obj.load_from:
-                    parsed_value = self.parse_arg(field_obj.load_from, field_obj, req, locations)
-                    argname = field_obj.load_from
-                if parsed_value is not missing:
-                    parsed[argname] = parsed_value
+                parsed[argname] = parsed_value
         return parsed
 
     def load(self, data, argmap):
@@ -441,7 +436,6 @@ class Parser(object):
                     # Add parsed_args after other positional arguments
                     new_args = args + (parsed_args, )
                     return func(*new_args, **kwargs)
-            wrapper.__wrapped__ = func
             return wrapper
         return decorator
 
