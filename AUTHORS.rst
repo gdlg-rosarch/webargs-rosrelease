@@ -26,6 +26,3 @@ Contributors (chronological)
 * Brett Higgins <https://github.com/brettdh>
 * Vlad Frolov <https://github.com/frol>
 * Tuukka Mustonen <https://github.com/tuukkamustonen>
-* Francois-Xavier Darveau <https://github.com/EFF> 
-* Jérôme Lafréchoux <https://github.com/lafrech> 
-
